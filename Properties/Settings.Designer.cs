@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace MyGame.Properties
+namespace WPFUI.Properties
 {
 
 

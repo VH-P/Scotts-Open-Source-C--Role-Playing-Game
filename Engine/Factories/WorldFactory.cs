@@ -1,26 +1,62 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.IO;
+using System.Xml;
+
 using Engine.Models;
+using Engine.Shared;
+
 namespace Engine.Factories
 {
     internal static class WorldFactory
     {
+        private const string GAME_DATA_FILENAME = ".\\GameData\\Locations.xml";
         internal static World CreateWorld()
+        {//Lesson 09.2: Adding the Trade Screen
+            World world = new World();
+            if (File.Exists(GAME_DATA_FILENAME))
+            {
+                XmlDocument data = new XmlDocument();
+                data.LoadXml(File.ReadAllText(GAME_DATA_FILENAME));
+                string rootImagePath = data.SelectSingleNode("/Locations").AttributeAsString("RootImagePath");
+                LoadLocationsFromNodes(world, rootImagePath, data.SelectNodes("./Locations/Location"));
+            }
+            else
+            {
+                throw new FileNotFoundException($"Missing data file: {GAME_DATA_FILENAME}");
+            }
+            return world;
+        }
+        private static void LoadLocationsFromNodes(World world, string rootImagePath, XmlNodeList nodes)
         {
-            World newWorld = new World();
-            newWorld.AddLocation(-2, -1, "Farmer's Field", "There are rows of corn growing here, with giant rats hiding between them", "/Engine;component/Images/Locations/FarmFields.png");
-            newWorld.AddLocation(-1, -1, "Farmer's House", "This is the house of your neighbor, Farmer Bob.", "/Engine;component/Images/Locations/Farmhouse.png");
-            newWorld.AddLocation(0, -1, "Home", "This is your home","/Engine;component/Images/Locations/Home.png");
-            newWorld.AddLocation(-1, 0, "Trading Shop","The shop of Meg, the trader.","/Engine;component/Images/Locations/Trader.png");
-            newWorld.AddLocation(0, 0, "Town square","You see a fountain here.", "/Engine;component/Images/Locations/TownSquare.png");
-            newWorld.AddLocation(1, 0, "Town Gate","There is a gate here, protecting the town from giant spiders.","/Engine;component/Images/Locations/TownGate.png");
-            newWorld.AddLocation(2, 0, "Spider Forest","The trees in this forest are covered with spider webs.","/Engine;component/Images/Locations/SpiderForest.png");
-            newWorld.AddLocation(0, 1, "Herbalist's hut", "You see a small hut, with plants drying from the roof.","/Engine;component/Images/Locations/HerbalistsHut.png");
-            newWorld.AddLocation(0, 2, "Herbalist's garden","There are many plants here, with snakes hiding behind them.","/Engine;component/Images/Locations/HerbalistsGarden.png");
-            return newWorld;
+            if (nodes == null) { return; }
+            foreach (XmlNode node in nodes)
+            {
+                Location location = new Location(node.AttributeAsInt("X"), node.AttributeAsInt("Y"), node.AttributeAsString("Name"), node.SelectSingleNode("./Description")?.InnerText ?? "", $".{rootImagePath}{node.AttributeAsString("ImageName")}");
+                AddMonsters(location, node.SelectNodes("./Monsters/Monster"));
+                AddQuests(location, node.SelectNodes("./Quests/Quest"));
+                AddTrader(location, node.SelectSingleNode("./Trader"));
+                world.AddLocation(location);
+            }
+        }
+        private static void AddMonsters(Location location, XmlNodeList monsters)
+        {
+            if (monsters==null) { return; }
+            foreach (XmlNode monsterNode in monsters) 
+            {
+                location.AddMonster(monsterNode.AttributeAsInt("ID"), monsterNode.AttributeAsInt("Percent"));
+            }
+        }
+        private static void AddQuests(Location location, XmlNodeList quests)
+        {
+            if (quests == null) { return; }
+            foreach (XmlNode questNode in quests)
+            {
+                location.QuestsAvailableHere.Add(QuestFactory.GetQuestByID(questNode.AttributeAsInt("ID")));
+            }
+        }
+        private static void AddTrader(Location location, XmlNode traderHere)
+        {
+            if (traderHere == null) { return; }
+            location.TraderHere = TraderFactory.GetTraderByID(traderHere.AttributeAsInt("ID"));
         }
     }
 }
